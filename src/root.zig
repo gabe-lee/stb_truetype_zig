@@ -34,177 +34,246 @@ const FontFileReader = struct {
         };
     }
 
+    inline fn check_slice(self: *FontFileReader, start: u32, len: u32) FontError!void {
+        if (self.data.len < start + len) return FontError.font_attempted_to_read_past_its_own_data;
+    }
+
     inline fn slice(self: *FontFileReader, start: usize, len: usize) FontFileReader {
-        assert(start + len <= self.data.len);
         return FontFileReader{
             .data = self.data[start .. start + len],
             .pos = 0,
         };
     }
 
-    inline fn read_u8(self: *FontFileReader) u8 {
-        assert(self.pos < self.data.len);
-        const val = self.data[self.pos];
-        self.pos += 1;
-        return val;
+    inline fn check_goto(self: *FontFileReader, offset: u32) FontError!void {
+        if (self.data.len <= offset) return FontError.font_attempted_to_read_past_its_own_data;
+    }
+
+    inline fn goto(self: *FontFileReader, offset: u32) void {
+        self.pos = offset;
+    }
+
+    inline fn check_skip(self: *FontFileReader, count: u32) FontError!void {
+        if (self.data.len <= self.pos + count) return FontError.font_attempted_to_read_past_its_own_data;
+    }
+
+    inline fn skip(self: *FontFileReader, count: u32) void {
+        self.pos += count;
+    }
+
+    inline fn check_read_1_byte(self: *FontFileReader) FontError!void {
+        return BigEnd.check_read_1_byte_at(self.data, self.pos);
+    }
+
+    inline fn check_read_2_bytes(self: *FontFileReader) FontError!void {
+        return BigEnd.check_read_2_bytes_at(self.data, self.pos);
+    }
+
+    inline fn check_read_4_bytes(self: *FontFileReader) FontError!void {
+        return BigEnd.check_read_4_bytes_at(self.data, self.pos);
+    }
+
+    inline fn check_read_n_bytes_comptime(self: *FontFileReader, comptime count: usize) FontError!void {
+        return BigEnd.check_read_n_bytes_at_comptime(self.data, self.pos, count);
+    }
+
+    inline fn check_read_n_bytes(self: *FontFileReader, count: usize) FontError!void {
+        return BigEnd.check_read_n_bytes_at(self.data, self.pos, count);
     }
 
     inline fn peek_u8(self: *FontFileReader) u8 {
-        assert(self.pos < self.data.len);
-        return self.data[self.pos];
+        return BigEnd.read_u8(self.data, self.pos);
     }
-
-    inline fn goto(self: *FontFileReader, pos: usize) void {
-        assert(pos <= self.data.len);
-        self.pos = pos;
+    inline fn peek_i8(self: *FontFileReader) i8 {
+        return BigEnd.read_i8(self.data, self.pos);
     }
-
-    inline fn skip(self: *FontFileReader, count: usize) void {
-        assert(count + self.pos <= self.data.len);
-        self.pos += count;
+    inline fn read_u8(self: *FontFileReader) u8 {
+        const read_pos = self.pos;
+        self.pos += 1;
+        return BigEnd.read_u8(self.data, read_pos);
     }
-
-    inline fn read_n_bytes_to_u32(self: *FontFileReader, count: usize) u32 {
-        assert(count > 0 and count < 5);
-        assert(count + self.pos <= self.data.len);
-        const val: u32 = switch (count) {
-            1 => @as(u32, @intCast(self.data[self.pos])),
-            2 => @as(u32, @intCast(self.data[self.pos] << 8)) | @as(u32, @intCast(self.data[self.pos + 1])),
-            3 => @as(u32, @intCast(self.data[self.pos] << 16)) | @as(u32, @intCast(self.data[self.pos + 1] << 8)) | @as(u32, @intCast(self.data[self.pos + 2])),
-            4 => @as(u32, @intCast(self.data[self.pos] << 24)) | @as(u32, @intCast(self.data[self.pos + 1] << 16)) | @as(u32, @intCast(self.data[self.pos + 2] << 8)) | @as(u32, @intCast(self.data[self.pos + 3])),
-            else => unreachable,
-        };
-        self.pos += count;
-        return val;
+    inline fn read_i8(self: *FontFileReader) i8 {
+        const read_pos = self.pos;
+        self.pos += 1;
+        return BigEnd.read_i8(self.data, read_pos);
     }
 
     inline fn peek_u16(self: *FontFileReader) u16 {
-        return BigEnd.get_u16(self.data[self.pos..]);
-    }
-    inline fn read_u16(self: *FontFileReader) u16 {
-        const val: u16 = self.peek_u16();
-        self.pos += 2;
-        return val;
+        return BigEnd.read_u16(self.data, self.pos);
     }
     inline fn peek_i16(self: *FontFileReader) i16 {
-        return BigEnd.peek_i16(self.data[self.pos..]);
+        return BigEnd.read_i16(self.data, self.pos);
+    }
+    inline fn read_u16(self: *FontFileReader) u16 {
+        const read_pos = self.pos;
+        self.pos += 2;
+        return BigEnd.read_u16(self.data, read_pos);
     }
     inline fn read_i16(self: *FontFileReader) i16 {
-        const val: i16 = self.peek_i16();
+        const read_pos = self.pos;
         self.pos += 2;
-        return val;
+        return BigEnd.read_i16(self.data, read_pos);
     }
 
     inline fn peek_u32(self: *FontFileReader) u32 {
-        return BigEnd.get_u32(self.data[self.pos..]);
-    }
-    inline fn read_u32(self: *FontFileReader) u32 {
-        const val: u32 = self.peek_u32();
-        self.pos += 4;
-        return val;
+        return BigEnd.read_u32(self.data, self.pos);
     }
     inline fn peek_i32(self: *FontFileReader) i32 {
-        return BigEnd.get_i32(self.data[self.pos..]);
+        return BigEnd.read_i32(self.data, self.pos);
+    }
+    inline fn read_u32(self: *FontFileReader) u32 {
+        const read_pos = self.pos;
+        self.pos += 4;
+        return BigEnd.read_u32(self.data, read_pos);
     }
     inline fn read_i32(self: *FontFileReader) i32 {
-        const val: i32 = self.peek_i32();
+        const read_pos = self.pos;
         self.pos += 4;
-        return val;
+        return BigEnd.read_i32(self.data, read_pos);
     }
 
-    fn cff_get_index(self: *FontFileReader) FontFileReader {
+    inline fn peek_n_bytes_to_u32(self: *FontFileReader, count: u8) u32 {
+        return BigEnd.read_n_bytes_to_u32(self.data, self.pos, count);
+    }
+    inline fn read_n_bytes_to_u32(self: *FontFileReader, count: u8) u32 {
+        const read_pos = self.pos;
+        self.pos += count;
+        return BigEnd.read_n_bytes_to_u32(self.data, read_pos, count);
+    }
+
+    fn cff_get_index(self: *FontFileReader) FontError!FontFileReader {
         const start = self.pos;
+        try self.check_read_2_bytes();
         const count = self.read_u16();
         if (count > 0) {
+            try self.check_read_1_byte();
             const offsize = self.read_u8();
-            assert(offsize > 0 and offsize < 5);
+            var skip_bytes = offsize * count;
+            try self.check_skip(skip_bytes);
             self.skip(offsize * count);
-            self.skip(self.read_n_bytes_to_u32(offsize) - 1);
+            try self.check_read_n_bytes(offsize);
+            skip_bytes = self.read_n_bytes_to_u32(offsize) - 1;
+            try self.check_skip(skip_bytes);
+            self.skip(skip_bytes);
         }
         return self.slice(start, self.pos - start);
     }
 
-    fn read_cff_int(self: *FontFileReader) u32 {
+    fn read_cff_int(self: *FontFileReader) FontError!u32 {
+        try self.check_read_1_byte();
         const byte_0: u32 = @intCast(self.read_u8());
-        if (byte_0 >= 32 and byte_0 <= 246) {
-            return byte_0 - 139;
-        } else if (byte_0 >= 247 and byte_0 <= 250) {
-            return ((byte_0 - 247) * 256) + self.read_u8() + 108;
-        } else if (byte_0 >= 251 and byte_0 <= 254) {
-            return -((byte_0 - 251) * 256) - self.read_u8() - 108;
-        } else if (byte_0 == 28) {
-            return @intCast(self.read_u16());
-        } else if (byte_0 == 29) {
-            return self.read_u32();
+        switch (byte_0) {
+            28 => {
+                try self.check_read_2_bytes();
+                return @intCast(self.read_u16());
+            },
+            29 => {
+                try self.check_read_4_bytes();
+                return self.read_u32();
+            },
+            32...246 => {
+                return byte_0 - 139;
+            },
+            247...250 => {
+                try self.check_read_1_byte();
+                return ((byte_0 - 247) * 256) + self.read_u8() + 108;
+            },
+            251...254 => {
+                try self.check_read_1_byte();
+                return -((byte_0 - 251) * 256) - self.read_u8() - 108;
+            },
+            else => return FontError.read_cff_int_invalid_byte_0,
         }
-        unreachable;
     }
 
-    fn skip_cff_operand(self: *FontFileReader) void {
+    fn skip_cff_operand(self: *FontFileReader) FontError!void {
+        try self.check_read_1_byte();
         const byte_0: u8 = self.read_u8();
-        assert(byte_0 >= 28);
         if (byte_0 == 30) {
+            try self.check_skip(1);
             self.skip(1);
             while (self.pos < self.data.len) {
+                try self.check_read_1_byte();
                 const val = self.read_u8();
-                if (((val & 0xF) == 0xF) || ((val >> 4) == 0xF)) break;
+                if (((val & 0xF) == 0xF) or ((val >> 4) == 0xF)) break;
             }
         } else {
-            _ = self.read_cff_int();
+            _ = try self.read_cff_int();
         }
     }
 
     /// Returns `null` if no cff dict matching key was found
-    fn get_cff_dict_slice(self: *FontFileReader, key: u32) ?FontFileReader {
+    fn get_cff_dict_slice(self: *FontFileReader, key: u32) FontError!FontFileReader {
         self.goto(0);
         while (self.pos < self.data.len) {
             const start = self.pos;
-            while (self.peek_u8() >= 28) {
-                self.skip_cff_operand();
+            try self.check_read_1_byte();
+            var byte_0 = self.peek_u8();
+            while (byte_0 >= 28) {
+                try self.skip_cff_operand();
+                try self.check_read_1_byte();
+                byte_0 = self.peek_u8();
             }
             const end = self.pos;
+            try self.check_read_1_byte();
             var op: u32 = @intCast(self.read_u8());
-            if (op == 12) op = @as(u32, @intCast(self.read_u8())) | 0x100;
+            if (op == 12) {
+                try self.check_read_1_byte();
+                op = @as(u32, @intCast(self.read_u8())) | 0x100;
+            }
             if (op == key) return self.slice(start, end - start);
         }
-        return null;
+        return FontError.missing_cff_dict;
     }
 
     /// Writes dict ints to destination slice
     ///
     /// Returns `false` if no dict matching key was found
-    fn read_cff_dict_ints_to_dst(self: *FontFileReader, key: u32, int_dst: []u32) bool {
-        const operands_or_null = self.get_cff_dict_slice(key);
-        if (operands_or_null) |operands| {
-            var i: usize = 0;
-            while (i < int_dst.len) {
-                int_dst[i] = operands.read_cff_int();
-                i += 1;
-            }
-            return true;
-        } else {
-            return false;
+    fn read_cff_dict_ints(self: *FontFileReader, key: u32, comptime count: comptime_int) FontError![count]u32 {
+        const operands = try self.get_cff_dict_slice(key);
+        var output: [count]u32 = undefined;
+        var i: usize = 0;
+        while (i < count) {
+            output[i] = try operands.read_cff_int();
+            i += 1;
         }
+        return output;
     }
 
-    inline fn cff_index_count(self: *FontFileReader) u16 {
+    inline fn cff_index_count(self: *FontFileReader) FontError!u16 {
         self.goto(0);
+        try self.check_read_2_bytes();
         return self.read_u16();
     }
 
-    fn cff_get_indexed_sub_slice(self: *FontFileReader, idx_key: u32) FontFileReader {
-        const count = self.cff_index_count();
-        const offsize = self.read_u8();
-        assert(idx_key < count);
-        assert(offsize >= 1 and offsize <= 4);
-        self.skip(idx_key * offsize);
-        const sub_start = self.read_n_bytes_to_u32(offsize);
-        const sub_end = self.read_n_bytes_to_u32(offsize);
-        return self.slice(((count + 1) * offsize) + 2 + sub_start, sub_end - sub_start);
+    inline fn check_index_less_than_count(idx: u32, count: u32) FontError!void {
+        if (idx >= count) return FontError.requested_index_greater_than_max_index;
     }
 
-    fn is_font(self: *FontFileReader) bool {
-        const font_tag = BigEnd.get_u32(self.data);
+    inline fn check_offsize(offsize: u8) FontError!void {
+        if (offsize < 1 or offsize > 4) return FontError.cff_offset_size_malformed;
+    }
+
+    fn cff_get_indexed_sub_slice(self: *FontFileReader, idx_key: u32) FontError!FontFileReader {
+        const count = try self.cff_index_count();
+        try check_index_less_than_count(idx_key, count);
+        try self.check_read_1_byte();
+        const offsize = self.read_u8();
+        try check_offsize(offsize);
+        const skip_count = idx_key * offsize;
+        try BigEnd.check_read_4_bytes_at(self.data, self.pos + skip_count + 4);
+        self.skip(skip_count);
+        const sub_start = self.read_n_bytes_to_u32(offsize);
+        const sub_end = self.read_n_bytes_to_u32(offsize);
+        const slice_start: u32 = ((count + 1) * offsize) + 2 + sub_start;
+        const slice_len: u32 = sub_end - sub_start;
+        try self.check_slice(slice_start, slice_len);
+        return self.slice(slice_start, slice_len);
+    }
+
+    fn is_font(self: *FontFileReader) FontError!bool {
+        try BigEnd.check_read_4_bytes_at(self.data, 0);
+        const font_tag = BigEnd.read_u32(self.data, 0);
         return switch (font_tag) {
             FONT_FORMAT.TRUE_TYPE_1 => true,
             FONT_FORMAT.TRUE_TYPE_WITH_TYPE_1 => true,
@@ -215,63 +284,69 @@ const FontFileReader = struct {
         };
     }
 
-    inline fn is_font_collection(self: *FontFileReader) bool {
-        const font_tag = BigEnd.get_u32(self.data);
+    inline fn is_font_collection(self: *FontFileReader) FontError!bool {
+        try BigEnd.check_read_4_bytes_at(self.data, 0);
+        const font_tag = BigEnd.read_u32(self.data, 0);
         return font_tag == FONT_FORMAT.FONT_COLLECTION;
     }
 
-    inline fn font_collection_is_ver_1(self: *FontFileReader) bool {
-        const ver = BigEnd.get_u32(self.data[4..]);
+    inline fn font_collection_is_ver_1(self: *FontFileReader) FontError!bool {
+        try BigEnd.check_read_4_bytes_at(self.data, 4);
+        const ver = BigEnd.read_u32(self.data, 4);
         return ver == 0x00010000 or ver == 0x00020000;
     }
 
     fn get_number_of_fonts_in_file(self: *FontFileReader) FontError!u32 {
-        if (self.is_font()) {
+        if (try self.is_font()) {
             return 1;
         }
 
-        if (self.is_font_collection()) {
-            if (self.font_collection_is_ver_1()) {
-                return BigEnd.get_u32(self.data[8..]);
+        if (try self.is_font_collection()) {
+            if (try self.font_collection_is_ver_1()) {
+                try BigEnd.check_read_4_bytes_at(self.data, 8);
+                return BigEnd.read_u32(self.data, 8);
             }
-            return FontError.FontCollectionIsUnsuportedVersion;
+            return FontError.font_collection_is_unsupported_version;
         }
 
-        return FontError.FileIsNotAFont_OR_IsUnsuportedFormat;
+        return FontError.file_is_not_a_font_OR_is_unsupported_format;
     }
 
     fn get_byte_offset_for_font_index(self: *FontFileReader, index: usize) FontError!u32 {
-        if (self.is_font()) {
+        if (try self.is_font()) {
             if (index == 0) return 0;
-            return FontError.FontFileContainsOnlyOneFont_BUT_RequestedFontIndexGreaterThanZero;
+            return FontError.file_contains_only_one_font_BUT_requested_font_index_greater_than_zero;
         }
 
-        if (self.is_font_collection()) {
-            if (self.font_collection_is_ver_1()) {
-                const num_fonts = BigEnd.get_u32(self.data[8..]);
-                if (index >= num_fonts) return FontError.FontIndexGreaterThanNumberOfFontsInCollection;
-                return BigEnd.get_u32(self.data[12 + (index * 4) ..]);
+        if (try self.is_font_collection()) {
+            if (try self.font_collection_is_ver_1()) {
+                try BigEnd.check_read_4_bytes_at(self.data, 8);
+                const num_fonts = BigEnd.read_u32(self.data, 8);
+                if (index >= num_fonts) return FontError.font_index_greater_than_number_of_fonts_in_collection;
+                const offset_loc = 12 + (index * 4);
+                try BigEnd.check_read_4_bytes_at(self.data, offset_loc);
+                return BigEnd.read_u32(self.data, offset_loc);
             }
         }
 
-        return FontError.FileIsNotAFont_OR_IsUnsuportedFormat;
+        return FontError.file_is_not_a_font_OR_is_unsupported_format;
     }
 
-    fn cff_get_subroutines(self: *FontFileReader, font_dict: *FontFileReader) ?FontFileReader {
-        var subrs_offset = [1]u32{0};
-        var private_loc = [2]u32{ 0, 0 };
-        font_dict.read_cff_dict_ints_to_dst(18, private_loc[0..2]);
-        if (private_loc[0] == 0 or private_loc[1] == 0) return null;
+    fn cff_get_subroutines(self: *FontFileReader, font_dict: *FontFileReader) FontError!FontFileReader {
+        const private_loc = try font_dict.read_cff_dict_ints(18, 2);
+        if (private_loc[0] == 0 or private_loc[1] == 0) return FontError.no_cff_subroutines;
+        try self.check_slice(private_loc[1], private_loc[0]);
         var pdict = self.slice(private_loc[1], private_loc[0]);
-        pdict.read_cff_dict_ints_to_dst(19, subrs_offset[0..1]);
-        if (subrs_offset[0] == 0) return null;
-        self.goto(private_loc[1 + subrs_offset[0]]);
-        return self.cff_get_index();
+        const subrs_offset = try pdict.read_cff_dict_ints(19, 1);
+        if (subrs_offset[0] == 0) return FontError.no_cff_subroutines;
+        const goto_loc = private_loc[1] + subrs_offset;
+        try self.check_goto(goto_loc);
+        self.goto(goto_loc);
+        return try self.cff_get_index();
     }
 };
 
 pub const FontInfo = struct {
-    issues: u64 = FONT_ISSUE.NONE,
     user_data: *anyopaque = undefined,
     data: []const u8 = undefined,
     /// number of individual glyphs in this font
@@ -293,17 +368,17 @@ pub const FontInfo = struct {
         cmap: u32 = 0,
     } = .{},
     has_table: struct {
-        loca: bool = false,
-        head: bool = false,
-        glyf: bool = false,
-        hhea: bool = false,
-        hmtx: bool = false,
-        kern: bool = false,
-        gpos: bool = false,
-        svg: bool = false,
-        maxp: bool = false,
-        cff: bool = false,
-        cmap: bool = false,
+        loca: HAS_TABLE = .UNKNOWN,
+        head: HAS_TABLE = .UNKNOWN,
+        glyf: HAS_TABLE = .UNKNOWN,
+        hhea: HAS_TABLE = .UNKNOWN,
+        hmtx: HAS_TABLE = .UNKNOWN,
+        kern: HAS_TABLE = .UNKNOWN,
+        gpos: HAS_TABLE = .UNKNOWN,
+        svg: HAS_TABLE = .UNKNOWN,
+        maxp: HAS_TABLE = .UNKNOWN,
+        cff: HAS_TABLE = .UNKNOWN,
+        cmap: HAS_TABLE = .UNKNOWN,
     } = .{},
     /// a cmap mapping for our chosen character encoding
     char_map: u32 = 0,
@@ -316,172 +391,203 @@ pub const FontInfo = struct {
     font_dicts: []const u8 = undefined,
     font_dict_select: []const u8 = undefined,
 
-    inline fn init_num_tables(self: *FontInfo) void {
-        self.num_tables = BigEnd.get_u16(self.data[4..]);
-    }
-
-    /// Returns `null` if table matching tag was not found
-    fn find_table_location(self: *FontInfo, tag: u32) ?u32 {
+    /// Returns `FontError.no_table_matching_tag` if table matching tag was not found
+    fn find_table_location(self: *FontInfo, tag: u32) FontError!u32 {
         var idx: usize = 0;
         var pos: usize = 12;
+        const max_read = 12 + ((self.num_tables - 1) * 16) + 8;
+        try BigEnd.check_read_4_bytes_at(self.data, max_read);
         while (idx < self.num_tables) {
-            const tag_at_pos = BigEnd.get_u32(self.data[pos..]);
+            const tag_at_pos = BigEnd.read_u32(self.data, pos);
             if (tag_at_pos == tag) {
-                return BigEnd.get_u32(self.data[pos + 8 ..]);
+                return BigEnd.read_u32(self.data, pos + 8);
             }
             idx += 1;
             pos += 16;
         }
-        return null;
+        return FontError.no_table_matching_tag;
     }
 
-    pub fn init_font(font_file_data: []const u8, offset: u32) FontInfo {
-        //FIXME refactor to return FontError when error conditions occur
+    pub fn init_font(font_file_data: []const u8, offset: u32) FontError!FontInfo {
         var font = FontInfo{};
         font.data = FontFileReader{
             .data = font_file_data[offset..],
             .pos = 0,
         };
-        font.init_num_tables();
+
+        try font.check_read_2_bytes_at(4);
+        font.num_tables = font.read_u16(4);
+
         var reader = FontFileReader{
             .data = font.data,
             .pos = 0,
         };
-        if (reader.find_table_location(FONT_TABLE.CMAP)) |loc| {
-            font.has_table.cmap = true;
+        //TODO find all required tables in one loop and cache optional tables found
+        if (font.find_table_location(FONT_TABLE.CMAP)) |loc| {
+            font.has_table.cmap = .TRUE;
             font.table.cmap = loc;
-        } else {
-            font.issues |= FONT_ISSUE.NO_CMAP;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                return FontError.required_table_not_found__cmap;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.HEAD)) |loc| {
-            font.has_table.head = true;
+        if (font.find_table_location(FONT_TABLE.HEAD)) |loc| {
+            font.has_table.head = .TRUE;
             font.table.head = loc;
-        } else {
-            font.issues |= FONT_ISSUE.NO_HEAD;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                return FontError.required_table_not_found__head;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.HHEA)) |loc| {
-            font.has_table.hhea = true;
+        if (font.find_table_location(FONT_TABLE.HHEA)) |loc| {
+            font.has_table.hhea = .TRUE;
             font.table.hhea = loc;
-        } else {
-            font.issues |= FONT_ISSUE.NO_HHEA;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                return FontError.required_table_not_found__hhea;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.HMTX)) |loc| {
-            font.has_table.hmtx = true;
+        if (font.find_table_location(FONT_TABLE.HMTX)) |loc| {
+            font.has_table.hmtx = .TRUE;
             font.table.hmtx = loc;
-        } else {
-            font.issues |= FONT_ISSUE.NO_HMTX;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                return FontError.required_table_not_found__hmtx;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.LOCA)) |loc| {
-            font.has_table.loca = true;
+        if (font.find_table_location(FONT_TABLE.LOCA)) |loc| {
+            font.has_table.loca = .TRUE;
             font.table.loca = loc;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                font.has_table.loca = .FALSE;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.GLYF)) |loc| {
-            font.has_table.glyf = true;
+        if (font.find_table_location(FONT_TABLE.GLYF)) |loc| {
+            font.has_table.glyf = .TRUE;
             font.table.glyf = loc;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                font.has_table.glyf = .FALSE;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.KERN)) |loc| {
-            font.has_table.kern = true;
+        if (font.find_table_location(FONT_TABLE.KERN)) |loc| {
+            font.has_table.kern = .TRUE;
             font.table.kern = loc;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                font.has_table.kern = .FALSE;
+            },
+            else => return err,
         }
-        if (reader.find_table_location(FONT_TABLE.GPOS)) |loc| {
-            font.has_table.gpos = true;
+        if (font.find_table_location(FONT_TABLE.GPOS)) |loc| {
+            font.has_table.gpos = .TRUE;
             font.table.gpos = loc;
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                font.has_table.gpos = .FALSE;
+            },
+            else => return err,
         }
-        if (font.issues > 0) return font;
-        if (font.has_table.glyf and !font.has_table.loca) {
+        if (font.has_table.glyf == .TRUE and font.has_table.loca != .TRUE) {
             // required for TrueType fonts
-            font.issues |= FONT_ISSUE.GLYF_BUT_NO_LOCA;
-            return font;
+            return FontError.glyf_table_but_no_loca_table;
         } else {
             // initialize CFF / Type 2 font (OTF)
-            var cstype = [1]u32{0};
-            var charstrings = [1]u32{0};
-            var fdarray_offset = [1]u32{0};
-            var fdselect_offset = [1]u32{0};
-            if (reader.find_table_location(FONT_TABLE.CFF)) |loc| {
+            if (font.find_table_location(FONT_TABLE.CFF)) |loc| {
                 font.table.cff = loc;
-                font.has_table.cff = true;
-            } else {
-                font.issues |= FONT_ISSUE.NO_CFF;
-                return font;
+                font.has_table.cff = .TRUE;
+            } else |err| switch (err) {
+                .no_table_matching_tag => {
+                    return FontError.cff_font_has_no_cff_table;
+                },
+                else => return err,
             }
             var cff_reader = FontFileReader{
                 .data = font.data[font.table.cff..], //TODO: find the actual end of the cff table
                 .pos = 0,
             };
+            try BigEnd.check_read_1_byte_at(cff_reader.data, 2);
             cff_reader.skip(2);
             const hdrsize_loc = cff_reader.read_u8();
+            try cff_reader.check_goto(hdrsize_loc);
             cff_reader.goto(hdrsize_loc);
             //TODO: the "name" index entry could list multiple fonts, but we only use the first listed
-            _ = cff_reader.cff_get_index(); // "name" index
-            var topdict_idx = cff_reader.cff_get_index(); // "topdict" index
-            var topdict = topdict_idx.cff_get_indexed_sub_slice(0); // "topdict" data
-            _ = cff_reader.cff_get_index(); // "string" index
-            font.global_subroutine_data = cff_reader.cff_get_index();
+            _ = try cff_reader.cff_get_index(); // "name" index
+            var topdict_idx = try cff_reader.cff_get_index(); // "topdict" index
+            var topdict = try topdict_idx.cff_get_indexed_sub_slice(0); // "topdict" data
+            _ = try cff_reader.cff_get_index(); // "string" index
+            font.global_subroutine_data = (try cff_reader.cff_get_index()).data;
 
-            topdict.read_cff_dict_ints_to_dst(17, charstrings[0..1]);
-            topdict.read_cff_dict_ints_to_dst(0x100 | 6, cstype[0..1]);
-            topdict.read_cff_dict_ints_to_dst(0x100 | 36, fdarray_offset[0..1]);
-            topdict.read_cff_dict_ints_to_dst(0x100 | 37, fdselect_offset[0..1]);
-            font.private_subroutine_data = cff_reader.cff_get_subroutines(&topdict);
+            const charstrings = try topdict.read_cff_dict_ints(17, 1);
+            const cstype = try topdict.read_cff_dict_ints(0x100 | 6, 1);
+            const fdarray_offset = try topdict.read_cff_dict_ints(0x100 | 36, 1);
+            const fdselect_offset = try topdict.read_cff_dict_ints(0x100 | 37, 1);
+            font.private_subroutine_data = (try cff_reader.cff_get_subroutines(&topdict)).data;
 
-            if (cstype[0] != 2) {
-                font.issues |= FONT_ISSUE.CSTYPE_NOT_2;
-                return font;
+            if (cstype != 2) return FontError.cff_cstype_must_be_2;
+            if (charstrings == 0) return FontError.cff_no_charstrings;
+
+            if (fdarray_offset != 0) {
+                if (fdselect_offset == 0) return FontError.cff_fdarray_but_no_fdselect;
+                try reader.check_goto(fdarray_offset);
+                reader.goto(fdarray_offset);
+                font.font_dicts = try reader.cff_get_index();
+                //TODO font.data.len - fdselect_offset could cause unhandled panic
+                try reader.check_slice(fdselect_offset, font.data.len - fdselect_offset);
+                font.font_dict_select = reader.slice(fdselect_offset, font.data.len - fdselect_offset);
             }
-            if (charstrings == 0) {
-                font.issues |= FONT_ISSUE.NO_CHARSTRINGS;
-                return font;
-            }
-
-            if (fdarray_offset[0] != 0) {
-                if (fdselect_offset[0] == 0) {
-                    font.issues |= FONT_ISSUE.FDARRAY_BUT_NO_FDSELECT;
-                    return font;
-                }
-                reader.goto(fdarray_offset[0]);
-                font.font_dicts = reader.cff_get_index();
-                font.font_dict_select = reader.slice(fdselect_offset[0], font.data.len - fdselect_offset[0]);
-            }
-
-            reader.goto(charstrings[0]);
-            font.charstring_data = reader.cff_get_index();
+            try reader.check_goto(charstrings);
+            reader.goto(charstrings);
+            font.charstring_data = try reader.cff_get_index();
         }
 
         const maxp = font.find_table_location(FONT_TABLE.MAXP);
         if (maxp) |loc| {
             font.table.maxp = loc;
-            font.has_table.maxp = true;
-            font.num_glyphs = BigEnd.get_u16(font.data[loc + 4 ..]);
-        } else {
-            font.num_glyphs = 0xFFFF;
+            font.has_table.maxp = .TRUE;
+            try font.check_read_2_bytes_at(loc + 4);
+            font.num_glyphs = font.read_u16(loc + 4);
+        } else |err| switch (err) {
+            .no_table_matching_tag => {
+                font.has_table.maxp = .FALSE;
+                font.num_glyphs = 0xFFFF;
+            },
+            else => return err,
         }
 
-        const num_cmap_tables = BigEnd.get_u16(font.data[font.table.cmap + 2]);
+        try font.check_read_2_bytes_at(font.table.cmap + 2);
+        const num_cmap_tables = font.read_u16(font.table.cmap + 2);
         var i: usize = 0;
         var encoding_loc = font.table.cmap + 4;
+        const max_read = encoding_loc + ((num_cmap_tables - 1) * 8) + 4;
+        try font.check_read_4_bytes_at(max_read);
         while (i < num_cmap_tables) {
-            switch (BigEnd.get_u16(font.data[encoding_loc..])) {
-                PLATFORM_ID.WIN => switch (BigEnd.get_u16(font.data[encoding_loc + 2 ..])) {
+            switch (font.read_u16(encoding_loc)) {
+                PLATFORM_ID.WIN => switch (font.read_u16(encoding_loc + 2)) {
                     WIN_EID.UNICODE_BMP, WIN_EID.UNICODE_FULL => {
-                        font.char_map = font.table.cmap + BigEnd.get_u32(font.data[encoding_loc + 4 ..]);
+                        font.char_map = font.table.cmap + font.read_u32(encoding_loc + 4);
                     },
                     else => {},
                 },
                 PLATFORM_ID.UNI => {
-                    font.char_map = font.table.cmap + BigEnd.get_u32(font.data[encoding_loc + 4 ..]);
+                    font.char_map = font.table.cmap + font.read_u32(encoding_loc + 4);
                 },
                 else => {},
             }
             i += 1;
             encoding_loc += 8;
         }
-        if (font.char_map == 0) {
-            font.issues |= FONT_ISSUE.NO_SUPPORTED_CMAP_ENCODING_TABLE;
-            return font;
-        }
-
-        font.index_to_loc_format = BigEnd.get_u16(font.data[font.table.head + 50 ..]);
+        if (font.char_map == 0) return FontError.no_supported_cmap_encoding_table;
+        const font_to_loc_format_loc = font.table.head + 50;
+        try font.check_read_2_bytes_at(font_to_loc_format_loc);
+        font.index_to_loc_format = font.read_u16(font_to_loc_format_loc);
         return font;
     }
 
@@ -606,77 +712,106 @@ pub const FontInfo = struct {
         }
     }
 
+    //TODO: stbtt_GetCodepointShape
+
     inline fn check_read_1_byte_at(self: *const FontInfo, offset: usize) FontError!void {
-        if (self.data.len <= offset) return FontError.font_attempted_to_read_past_its_own_data;
+        return BigEnd.check_read_1_byte_at(self.data, offset);
     }
 
     inline fn check_read_2_bytes_at(self: *const FontInfo, offset: usize) FontError!void {
-        if (self.data.len < offset + 2) return FontError.font_attempted_to_read_past_its_own_data;
+        return BigEnd.check_read_2_bytes_at(self.data, offset);
     }
 
     inline fn check_read_4_bytes_at(self: *const FontInfo, offset: usize) FontError!void {
-        if (self.data.len < offset + 4) return FontError.font_attempted_to_read_past_its_own_data;
+        return BigEnd.check_read_4_bytes_at(self.data, offset);
     }
 
-    inline fn check_read_n_bytes_at(self: *const FontInfo, offset: usize, comptime count: usize) FontError!void {
-        if (self.data.len < offset + count) return FontError.font_attempted_to_read_past_its_own_data;
+    inline fn check_read_n_bytes_at_comptime(self: *const FontInfo, offset: usize, comptime count: usize) FontError!void {
+        return BigEnd.check_read_n_bytes_at_comptime(self.data, offset, count);
+    }
+
+    inline fn check_read_n_bytes_at(self: *const FontInfo, offset: usize, count: usize) FontError!void {
+        return BigEnd.check_read_n_bytes_at(self.data, offset, count);
     }
 
     inline fn read_u8(self: *const FontInfo, offset: u32) u8 {
-        return self.data[offset];
+        return BigEnd.read_u8(self.data, offset);
     }
     inline fn read_i8(self: *const FontInfo, offset: u32) i8 {
-        return @bitCast(self.read_u8(offset));
+        return BigEnd.read_i8(self.data, offset);
     }
 
     inline fn read_u16(self: *const FontInfo, offset: u32) u16 {
-        return @as(u16, @intCast(self.data[offset])) << 8 | @as(u16, @intCast(self.data[offset + 1]));
+        return BigEnd.read_u16(self.data, offset);
     }
     inline fn read_i16(self: *const FontInfo, offset: u32) i16 {
-        return @bitCast(self.read_u16(offset));
+        return BigEnd.read_i16(self.data, offset);
     }
 
     inline fn read_u32(self: *const FontInfo, offset: u32) u32 {
-        assert(data.len >= 4);
-        return @as(u32, @intCast(self.data[0])) << 24 | @as(u32, @intCast(self.data[offset + 1])) << 16 | @as(u32, @intCast(self.data[offset + 2])) << 8 | @as(u32, @intCast(self.data[offset + 3]));
+        return BigEnd.read_u32(self.data, offset);
     }
     inline fn read_i32(self: *const FontInfo, offset: u32) i32 {
-        return @bitCast(self.read_u32(offset));
+        return BigEnd.read_i32(self.data, offset);
     }
 };
 
 /// Utility functions for reading values from a BigEndian byte buffer
 const BigEnd = struct {
-    inline fn get_u16(data: []const u8) u16 {
-        assert(data.len >= 2);
-        return @as(u16, @intCast(data[0])) << 8 | @as(u16, @intCast(data[1]));
-    }
-    inline fn get_i16(data: []const u8) i16 {
-        return @bitCast(BigEnd.get_u16(data));
+    inline fn check_read_1_byte_at(data: []const u8, offset: usize) FontError!void {
+        if (data.len <= offset) return FontError.font_attempted_to_read_past_its_own_data;
     }
 
-    inline fn get_u32(data: []const u8) u32 {
-        assert(data.len >= 4);
-        return @as(u32, @intCast(data[0])) << 24 | @as(u32, @intCast(data[1])) << 16 | @as(u32, @intCast(data[2])) << 8 | @as(u32, @intCast(data[3]));
+    inline fn check_read_2_bytes_at(data: []const u8, offset: usize) FontError!void {
+        if (data.len < offset + 2) return FontError.font_attempted_to_read_past_its_own_data;
     }
-    inline fn get_i32(data: []const u8) i32 {
-        return @bitCast(BigEnd.get_u32(data));
-    }
-};
 
-pub const FONT_ISSUE = struct {
-    pub const NONE: u64 = 0;
-    // ERROR class issues
-    pub const NO_CMAP: u64 = 1 << 1;
-    pub const NO_HEAD: u64 = 1 << 2;
-    pub const NO_HHEA: u64 = 1 << 3;
-    pub const NO_HMTX: u64 = 1 << 4;
-    pub const GLYF_BUT_NO_LOCA: u64 = 1 << 5;
-    pub const NO_CFF: u64 = 1 << 6;
-    pub const CSTYPE_NOT_2: u64 = 1 << 7;
-    pub const NO_CHARSTRINGS: u64 = 1 << 8;
-    pub const FDARRAY_BUT_NO_FDSELECT: u64 = 1 << 9;
-    pub const NO_SUPPORTED_CMAP_ENCODING_TABLE: u64 = 1 << 10;
+    inline fn check_read_4_bytes_at(data: []const u8, offset: usize) FontError!void {
+        if (data.len < offset + 4) return FontError.font_attempted_to_read_past_its_own_data;
+    }
+
+    inline fn check_read_n_bytes_at_comptime(data: []const u8, offset: usize, comptime count: usize) FontError!void {
+        if (data.len < offset + count) return FontError.font_attempted_to_read_past_its_own_data;
+    }
+
+    inline fn check_read_n_bytes_at(data: []const u8, offset: usize, count: usize) FontError!void {
+        if (data.len < offset + count) return FontError.font_attempted_to_read_past_its_own_data;
+    }
+
+    inline fn read_u8(data: []const u8, offset: u32) u8 {
+        return data[offset];
+    }
+    inline fn read_i8(data: []const u8, offset: u32) i8 {
+        return @bitCast(BigEnd.read_u8(data, offset));
+    }
+
+    inline fn read_u16(data: []const u8, offset: u32) u16 {
+        return @as(u16, @intCast(data[offset])) << 8 | @as(u16, @intCast(data[offset + 1]));
+    }
+    inline fn read_i16(data: []const u8, offset: u32) i16 {
+        return @bitCast(BigEnd.read_u16(data, offset));
+    }
+
+    inline fn read_u32(data: []const u8, offset: u32) u32 {
+        return @as(u32, @intCast(data[0])) << 24 | @as(u32, @intCast(data[offset + 1])) << 16 | @as(u32, @intCast(data[offset + 2])) << 8 | @as(u32, @intCast(data[offset + 3]));
+    }
+    inline fn read_i32(data: []const u8, offset: u32) i32 {
+        return @bitCast(BigEnd.read_u32(data, offset));
+    }
+
+    inline fn check_read_n_bytes_to_u32_count(count: u8) FontError!void {
+        if (count < 1 or count > 4) return FontError.cff_offset_size_malformed;
+    }
+
+    inline fn read_n_bytes_to_u32(data: []const u8, offset: u32, count: u8) u32 {
+        return switch (count) {
+            1 => @as(u32, @intCast(data[offset])),
+            2 => @as(u32, @intCast(data[offset] << 8)) | @as(u32, @intCast(data[offset + 1])),
+            3 => @as(u32, @intCast(data[offset] << 16)) | @as(u32, @intCast(data[offset + 1] << 8)) | @as(u32, @intCast(data[offset + 2])),
+            4 => @as(u32, @intCast(data[offset] << 24)) | @as(u32, @intCast(data[offset + 1] << 16)) | @as(u32, @intCast(data[offset + 2] << 8)) | @as(u32, @intCast(data[offset + 3])),
+            else => unreachable,
+        };
+    }
 };
 
 const CMAP_FORMAT = struct {
@@ -756,19 +891,32 @@ const MAC_LANG = enum(u32) {
     CHINESE_SIMPLIFIED = 33,
 };
 
-pub const FontError = error{
-    FontFileContainsOnlyOneFont_BUT_RequestedFontIndexGreaterThanZero,
-    FontCollectionIsUnsuportedVersion,
-    FontIndexGreaterThanNumberOfFontsInCollection,
-    RequiredTableNotFound_CMAP,
-    RequiredTableNotFound_LOCA,
-    RequiredTableNotFound_HEAD,
-    RequiredTableNotFound_GLYF,
-    RequiredTableNotFound_HHEA,
-    RequiredTableNotFound_HMTX,
-    RequiredTableNotFound_KERN,
-    RequiredTableNotFound_GPOS,
+pub const HAS_TABLE = enum(u8) {
+    FALSE = 0,
+    TRUE = 1,
+    UNKNOWN = 2,
+};
 
+pub const FontError = error{
+    file_is_not_a_font_OR_is_unsupported_format,
+    file_contains_only_one_font_BUT_requested_font_index_greater_than_zero,
+    font_collection_is_unsupported_version,
+    font_index_greater_than_number_of_fonts_in_collection,
+    required_table_not_found__cmap,
+    required_table_not_found__head,
+    required_table_not_found__hhea,
+    required_table_not_found__hmtx,
     font_attempted_to_read_past_its_own_data,
     cmap_format_not_supported,
+    cff_offset_size_malformed,
+    read_cff_int_invalid_byte_0,
+    missing_cff_dict,
+    requested_index_greater_than_max_index,
+    no_cff_subroutines,
+    no_table_matching_tag,
+    cff_font_has_no_cff_table,
+    cff_cstype_must_be_2,
+    cff_no_charstrings,
+    cff_fdarray_but_no_fdselect,
+    no_supported_cmap_encoding_table,
 };
